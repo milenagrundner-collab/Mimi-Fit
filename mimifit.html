@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>MimiFit</title>
+<meta name="theme-color" content="#EC4899" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="MimiFit" />
+<style>html,body,#root{margin:0;padding:0;min-height:100%;background:#FDF2F8;}</style>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect } = React;
+
+
+
+// ── Paleta rosa ─────────────────────────────────────────────────
+const C = {
+  bg: "#FDF2F8",
+  surface: "#FFFFFF",
+  surfaceTint: "#FCE7F1",
+  line: "#F6C9DE",
+  text: "#3A2230",
+  dim: "#A6788E",
+  pink: "#EC4899",
+  pinkDim: "#DB2777",
+};
+
+// ── Camada de armazenamento (localStorage para a web/Vercel) ────
+const store = {
+  async list(prefix) {
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith(prefix));
+    return { keys };
+  },
+  async get(key) {
+    const value = localStorage.getItem(key);
+    return value ? { value } : null;
+  },
+  async set(key, value) {
+    localStorage.setItem(key, value);
+    return { value };
+  },
+};
+
+const OBJETIVOS = [
+  { id: "hipertrofia", label: "Hipertrofia", desc: "Ganho de massa muscular" },
+  { id: "forca", label: "Força", desc: "Aumento de carga máxima" },
+  { id: "emagrecimento", label: "Emagrecimento", desc: "Perda de gordura" },
+  { id: "condicionamento", label: "Condicionamento", desc: "Resistência e saúde geral" },
+];
+
+const EXPERIENCIA = [
+  { id: "iniciante", label: "Iniciante", desc: "Até 6 meses" },
+  { id: "intermediario", label: "Intermediário", desc: "6 meses a 2 anos" },
+  { id: "avancado", label: "Avançado", desc: "Mais de 2 anos" },
+];
+
+const EQUIPAMENTOS = [
+  { label: "Academia completa", tags: ["gym", "dumbbell", "bar", "band", "body"] },
+  { label: "Halteres em casa", tags: ["dumbbell", "band", "body"] },
+  { label: "Barra fixa / paralelas", tags: ["bar", "body"] },
+  { label: "Elásticos / faixas", tags: ["band", "body"] },
+  { label: "Só peso corporal", tags: ["body"] },
+];
+
+const DIAS = [3, 4, 5, 6];
+
+const PARAMS = {
+  hipertrofia: { series: "3-4", reps: "8-12", descanso: "60-90s" },
+  forca: { series: "4-5", reps: "3-6", descanso: "2-3 min" },
+  emagrecimento: { series: "3", reps: "12-15", descanso: "30-45s" },
+  condicionamento: { series: "3", reps: "12-15", descanso: "45-60s" },
+};
+
+const N_EX = { iniciante: 4, intermediario: 5, avancado: 6 };
+
+const EX = [
+  { n: "Supino reto com barra", g: "peito", tags: ["gym"], obs: "Escápulas retraídas, desça controlado.", risk: ["ombro"] },
+  { n: "Supino reto com halteres", g: "peito", tags: ["gym", "dumbbell"], obs: "Amplitude completa, sem travar cotovelos.", risk: ["ombro"] },
+  { n: "Supino inclinado com halteres", g: "peito", tags: ["gym", "dumbbell"], obs: "Foco na porção superior do peito." },
+  { n: "Crucifixo com halteres", g: "peito", tags: ["gym", "dumbbell"], obs: "Leve flexão de cotovelo fixa." },
+  { n: "Crossover na polia", g: "peito", tags: ["gym"], obs: "Aperte o peito no fim do movimento." },
+  { n: "Flexão de braço", g: "peito", tags: ["body"], obs: "Corpo alinhado, desça até quase tocar o chão." },
+  { n: "Flexão com elástico", g: "peito", tags: ["band"], obs: "Elástico nas costas para resistência extra." },
+  { n: "Barra fixa (pull-up)", g: "costas", tags: ["gym", "bar"], obs: "Puxe levando o peito à barra." },
+  { n: "Puxada frente na polia", g: "costas", tags: ["gym"], obs: "Cotovelos para baixo, não use impulso." },
+  { n: "Remada curvada com barra", g: "costas", tags: ["gym"], obs: "Coluna neutra, puxe ao abdômen.", risk: ["lombar"] },
+  { n: "Remada com halteres", g: "costas", tags: ["gym", "dumbbell"], obs: "Apoie uma mão no banco, costas retas.", risk: ["lombar"] },
+  { n: "Remada com elástico", g: "costas", tags: ["band"], obs: "Aperte as escápulas no fim." },
+  { n: "Remada invertida na barra", g: "costas", tags: ["bar", "body"], obs: "Corpo reto, puxe o peito à barra." },
+  { n: "Desenvolvimento com halteres", g: "ombro", tags: ["gym", "dumbbell"], obs: "Não trave os cotovelos no topo.", risk: ["ombro"] },
+  { n: "Elevação lateral", g: "ombro", tags: ["gym", "dumbbell"], obs: "Suba até a linha dos ombros, sem balanço." },
+  { n: "Elevação lateral com elástico", g: "ombro", tags: ["band"], obs: "Movimento controlado nos dois sentidos." },
+  { n: "Desenvolvimento militar", g: "ombro", tags: ["gym"], obs: "Abdômen firme, sem hiperextensão lombar.", risk: ["ombro", "lombar"] },
+  { n: "Pike push-up", g: "ombro", tags: ["body"], obs: "Quadril alto, desça a cabeça ao chão.", risk: ["ombro"] },
+  { n: "Rosca direta com barra", g: "biceps", tags: ["gym"], obs: "Cotovelos fixos ao lado do corpo." },
+  { n: "Rosca alternada com halteres", g: "biceps", tags: ["gym", "dumbbell"], obs: "Gire o punho ao subir." },
+  { n: "Rosca com elástico", g: "biceps", tags: ["band"], obs: "Pise no elástico e suba controlado." },
+  { n: "Rosca na barra fixa (supinada)", g: "biceps", tags: ["bar", "body"], obs: "Pegada supinada, puxe o peito à barra." },
+  { n: "Tríceps na polia (corda)", g: "triceps", tags: ["gym"], obs: "Estenda totalmente e abra a corda no fim." },
+  { n: "Tríceps testa com halteres", g: "triceps", tags: ["gym", "dumbbell"], obs: "Cotovelos apontando ao teto." },
+  { n: "Mergulho nas paralelas", g: "triceps", tags: ["gym", "bar"], obs: "Tronco vertical para focar tríceps.", risk: ["ombro"] },
+  { n: "Tríceps no banco", g: "triceps", tags: ["body"], obs: "Mãos na borda, desça o quadril." },
+  { n: "Tríceps com elástico", g: "triceps", tags: ["band"], obs: "Cotovelos fixos, só o antebraço se move." },
+  { n: "Agachamento livre com barra", g: "quadriceps", tags: ["gym"], obs: "Joelhos na direção dos pés, desça até paralelo.", risk: ["joelho", "lombar"] },
+  { n: "Leg press", g: "quadriceps", tags: ["gym"], obs: "Não estenda totalmente os joelhos no topo.", risk: ["joelho"] },
+  { n: "Agachamento goblet com halter", g: "quadriceps", tags: ["gym", "dumbbell"], obs: "Halter junto ao peito, tronco ereto.", risk: ["joelho"] },
+  { n: "Afundo (lunge)", g: "quadriceps", tags: ["dumbbell", "body"], obs: "Passo firme, joelho da frente alinhado.", risk: ["joelho"] },
+  { n: "Agachamento livre (peso corporal)", g: "quadriceps", tags: ["body"], obs: "Desça controlado, calcanhares no chão.", risk: ["joelho"] },
+  { n: "Cadeira extensora", g: "quadriceps", tags: ["gym"], obs: "Contração no topo, desça devagar.", risk: ["joelho"] },
+  { n: "Levantamento terra romeno", g: "posterior", tags: ["gym", "dumbbell"], obs: "Quadril para trás, leve flexão de joelho.", risk: ["lombar"] },
+  { n: "Mesa flexora", g: "posterior", tags: ["gym"], obs: "Controle a fase de descida." },
+  { n: "Stiff com halteres", g: "posterior", tags: ["gym", "dumbbell"], obs: "Sinta o alongamento do posterior.", risk: ["lombar"] },
+  { n: "Elevação pélvica (hip thrust)", g: "gluteo", tags: ["gym", "dumbbell", "body"], obs: "Aperte o glúteo no topo." },
+  { n: "Glúteo no banco (peso corporal)", g: "gluteo", tags: ["body"], obs: "Ombros apoiados, suba o quadril." },
+  { n: "Panturrilha em pé", g: "panturrilha", tags: ["gym", "dumbbell", "body"], obs: "Amplitude máxima, pausa no topo." },
+  { n: "Prancha", g: "abdomen", tags: ["body"], obs: "Corpo reto, abdômen contraído." },
+  { n: "Abdominal supra", g: "abdomen", tags: ["body"], obs: "Suba pela contração, não puxe o pescoço." },
+  { n: "Elevação de pernas", g: "abdomen", tags: ["bar", "body"], obs: "Controle a descida das pernas." },
+];
+
+function splitFor(dias) {
+  if (dias <= 3)
+    return { divisao: "Full Body (A / B / C)", treinos: [
+      { nome: "Treino A", foco: "Corpo todo — ênfase em empurrar", grupos: ["peito", "ombro", "triceps", "quadriceps", "abdomen"] },
+      { nome: "Treino B", foco: "Corpo todo — ênfase em puxar", grupos: ["costas", "biceps", "posterior", "gluteo", "abdomen"] },
+      { nome: "Treino C", foco: "Corpo todo — pernas e core", grupos: ["quadriceps", "posterior", "ombro", "panturrilha", "abdomen"] },
+    ]};
+  if (dias === 4)
+    return { divisao: "Superior / Inferior (2x)", treinos: [
+      { nome: "Superior A", foco: "Peito, costas e braços", grupos: ["peito", "costas", "ombro", "biceps", "triceps"] },
+      { nome: "Inferior A", foco: "Pernas e glúteos", grupos: ["quadriceps", "posterior", "gluteo", "panturrilha", "abdomen"] },
+      { nome: "Superior B", foco: "Ombros e braços", grupos: ["ombro", "peito", "costas", "triceps", "biceps"] },
+      { nome: "Inferior B", foco: "Posterior e core", grupos: ["posterior", "quadriceps", "gluteo", "panturrilha", "abdomen"] },
+    ]};
+  if (dias === 5)
+    return { divisao: "Push / Pull / Legs + Upper / Lower", treinos: [
+      { nome: "Push", foco: "Peito, ombro e tríceps", grupos: ["peito", "ombro", "triceps"] },
+      { nome: "Pull", foco: "Costas e bíceps", grupos: ["costas", "biceps"] },
+      { nome: "Legs", foco: "Pernas completas", grupos: ["quadriceps", "posterior", "gluteo", "panturrilha"] },
+      { nome: "Superior", foco: "Peito, costas e ombros", grupos: ["peito", "costas", "ombro", "biceps", "triceps"] },
+      { nome: "Inferior", foco: "Pernas e core", grupos: ["quadriceps", "posterior", "gluteo", "abdomen"] },
+    ]};
+  return { divisao: "Push / Pull / Legs (2x)", treinos: [
+    { nome: "Push A", foco: "Peito, ombro e tríceps", grupos: ["peito", "ombro", "triceps"] },
+    { nome: "Pull A", foco: "Costas e bíceps", grupos: ["costas", "biceps"] },
+    { nome: "Legs A", foco: "Pernas completas", grupos: ["quadriceps", "posterior", "gluteo", "panturrilha"] },
+    { nome: "Push B", foco: "Ombro e peito", grupos: ["ombro", "peito", "triceps"] },
+    { nome: "Pull B", foco: "Costas e bíceps", grupos: ["costas", "biceps", "abdomen"] },
+    { nome: "Legs B", foco: "Posterior e glúteos", grupos: ["posterior", "quadriceps", "gluteo", "panturrilha"] },
+  ]};
+}
+
+function allowedTagsOf(profile) {
+  const equip = EQUIPAMENTOS.find((e) => e.label === profile.equipamento) || EQUIPAMENTOS[0];
+  return equip.tags;
+}
+function avoidOf(profile) {
+  const r = (profile.restricoes || "").toLowerCase();
+  const avoid = [];
+  if (/(joelho|menisco|patela)/.test(r)) avoid.push("joelho");
+  if (/(lombar|coluna|h[eé]rnia)/.test(r)) avoid.push("lombar");
+  if (/(ombro|manguito)/.test(r)) avoid.push("ombro");
+  return avoid;
+}
+function usableFor(profile, grupo, exclude = []) {
+  const tags = allowedTagsOf(profile);
+  const avoid = avoidOf(profile);
+  return EX.filter(
+    (e) => e.g === grupo && e.tags.some((t) => tags.includes(t)) &&
+      !(e.risk || []).some((rk) => avoid.includes(rk)) && !exclude.includes(e.n)
+  );
+}
+
+function buildPlan(profile, opts = {}) {
+  const param = PARAMS[profile.objetivo] || PARAMS.hipertrofia;
+  let nPerWorkout = (N_EX[profile.experiencia] || 5) + (opts.volumeAdj || 0);
+  nPerWorkout = Math.max(3, Math.min(8, nPerWorkout));
+
+  const split = splitFor(profile.dias);
+  const treinos = split.treinos.map((t) => {
+    let grupos = [...t.grupos];
+    if (opts.emphasis && grupos.includes(opts.emphasis)) {
+      // prioriza o grupo enfatizado colocando-o à frente
+      grupos = [opts.emphasis, ...grupos];
+    }
+    const exercicios = [];
+    const used = new Set();
+    let gi = 0, safety = 0;
+    while (exercicios.length < nPerWorkout && safety < 60) {
+      safety++;
+      const grupo = grupos[gi % grupos.length];
+      gi++;
+      const pool = usableFor(profile, grupo, [...used]);
+      if (pool.length === 0) continue;
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      used.add(pick.n);
+      exercicios.push({ nome: pick.n, g: pick.g, series: param.series, reps: param.reps, descanso: param.descanso, obs: pick.obs });
+    }
+    return { nome: t.nome, foco: t.foco, exercicios };
+  });
+
+  const objLabel = (OBJETIVOS.find((o) => o.id === profile.objetivo) || {}).label || "";
+  const resumo = `Divisão ${split.divisao} com ${profile.dias}x por semana, ajustada para ${objLabel.toLowerCase()} e nível ${profile.experiencia}.`;
+  const observacoes = profile.objetivo === "forca"
+    ? "Priorize carga e descanso completo entre séries. Aumente o peso ao completar todas as reps com boa técnica."
+    : profile.objetivo === "emagrecimento"
+    ? "Mantenha intervalos curtos e ritmo constante. Combine com déficit calórico e atividade aeróbica."
+    : "Progrida a carga gradualmente e priorize a execução correta antes de aumentar o peso.";
+
+  return { divisao: split.divisao, resumo, observacoes, treinos };
+}
+
+function ytSearch(nome) {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(nome + " execução musculação")}`;
+}
+
+// ── Componentes estáveis (fora do App → corrige o foco do teclado) ──
+function Input(props) {
+  return <input {...props} style={{
+    width: "100%", padding: "13px 14px", borderRadius: 12,
+    border: `1.5px solid ${C.line}`, background: C.surface, color: C.text,
+    fontSize: 16, outline: "none", boxSizing: "border-box",
+  }} />;
+}
+
+function Chip({ active, onClick, children, sub }) {
+  return <button onClick={onClick} style={{
+    textAlign: "left", width: "100%", padding: "14px 16px", borderRadius: 14,
+    border: `1.5px solid ${active ? C.pink : C.line}`,
+    background: active ? C.surfaceTint : C.surface,
+    color: C.text, cursor: "pointer", transition: "all .15s",
+  }}>
+    <div style={{ fontWeight: 600, fontSize: 15 }}>{children}</div>
+    {sub && <div style={{ fontSize: 12.5, color: C.dim, marginTop: 2 }}>{sub}</div>}
+  </button>;
+}
+
+function App() {
+  const [view, setView] = useState("loading");
+  const [step, setStep] = useState(0);
+  const [profile, setProfile] = useState({
+    nome: "", idade: "", peso: "", altura: "", sexo: "",
+    experiencia: "", objetivo: "", equipamento: "", dias: 4, restricoes: "",
+  });
+  const [plan, setPlan] = useState(null);
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await store.list("plan:");
+        const keys = res?.keys || [];
+        const loaded = [];
+        for (const k of keys) {
+          try { const item = await store.get(k); if (item?.value) loaded.push(JSON.parse(item.value)); } catch (e) {}
+        }
+        loaded.sort((a, b) => b.createdAt - a.createdAt);
+        setHistory(loaded);
+      } catch (e) {}
+      setView("onboarding");
+    })();
+  }, []);
+
+  const upd = (k, v) => setProfile((p) => ({ ...p, [k]: v }));
+
+  async function persist(record) {
+    try { await store.set(record.id, JSON.stringify(record)); } catch (e) {}
+  }
+
+  async function generatePlan(opts) {
+    const fullPlan = buildPlan(profile, opts);
+    const record = { id: "plan:" + Date.now(), createdAt: Date.now(), profile: { ...profile }, plan: fullPlan };
+    await persist(record);
+    setPlan(record);
+    setHistory((h) => [record, ...h]);
+    setView("result");
+  }
+
+  // regenerar a partir do plano atual (usado nos ajustes do Matheus)
+  async function adjustPlan(opts) {
+    const fullPlan = buildPlan(plan.profile, opts);
+    const updated = { ...plan, plan: fullPlan, createdAt: Date.now() };
+    await persist(updated);
+    setPlan(updated);
+    setHistory((h) => [updated, ...h.filter((r) => r.id !== updated.id)]);
+  }
+
+  // trocar um exercício específico
+  async function swapExercise(ti, ei) {
+    const t = plan.plan.treinos[ti];
+    const ex = t.exercicios[ei];
+    const usedNames = t.exercicios.map((e) => e.nome);
+    const alts = usableFor(plan.profile, ex.g, usedNames);
+    if (alts.length === 0) return;
+    const pick = alts[Math.floor(Math.random() * alts.length)];
+    const newEx = { ...ex, nome: pick.n, g: pick.g, obs: pick.obs };
+    const newTreinos = plan.plan.treinos.map((tt, i) =>
+      i !== ti ? tt : { ...tt, exercicios: tt.exercicios.map((ee, j) => (j === ei ? newEx : ee)) }
+    );
+    const updated = { ...plan, plan: { ...plan.plan, treinos: newTreinos } };
+    await persist(updated);
+    setPlan(updated);
+  }
+
+  const steps = [
+    { title: "Quem é você?",
+      valid: () => profile.nome && profile.idade && profile.peso && profile.altura && profile.sexo,
+      body: (
+        <div style={{ display: "grid", gap: 12 }}>
+          <Input placeholder="Nome" value={profile.nome} onChange={(e) => upd("nome", e.target.value)} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Input placeholder="Idade" inputMode="numeric" value={profile.idade} onChange={(e) => upd("idade", e.target.value)} />
+            <Input placeholder="Peso (kg)" inputMode="numeric" value={profile.peso} onChange={(e) => upd("peso", e.target.value)} />
+          </div>
+          <Input placeholder="Altura (cm)" inputMode="numeric" value={profile.altura} onChange={(e) => upd("altura", e.target.value)} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {["Feminino", "Masculino"].map((s) => (
+              <Chip key={s} active={profile.sexo === s} onClick={() => upd("sexo", s)}>{s}</Chip>
+            ))}
+          </div>
+        </div>
+      ) },
+    { title: "Sua experiência", valid: () => profile.experiencia,
+      body: (<div style={{ display: "grid", gap: 10 }}>
+        {EXPERIENCIA.map((e) => (<Chip key={e.id} sub={e.desc} active={profile.experiencia === e.id} onClick={() => upd("experiencia", e.id)}>{e.label}</Chip>))}
+      </div>) },
+    { title: "Seu objetivo", valid: () => profile.objetivo,
+      body: (<div style={{ display: "grid", gap: 10 }}>
+        {OBJETIVOS.map((o) => (<Chip key={o.id} sub={o.desc} active={profile.objetivo === o.id} onClick={() => upd("objetivo", o.id)}>{o.label}</Chip>))}
+      </div>) },
+    { title: "Onde e quanto", valid: () => profile.equipamento,
+      body: (<div style={{ display: "grid", gap: 18 }}>
+        <div>
+          <div style={{ fontSize: 13, color: C.dim, marginBottom: 8 }}>Equipamento disponível</div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {EQUIPAMENTOS.map((eq) => (<Chip key={eq.label} active={profile.equipamento === eq.label} onClick={() => upd("equipamento", eq.label)}>{eq.label}</Chip>))}
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: 13, color: C.dim, marginBottom: 8 }}>Dias por semana</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
+            {DIAS.map((d) => (<button key={d} onClick={() => upd("dias", d)} style={{
+              padding: "14px 0", borderRadius: 12, fontSize: 17, fontWeight: 700,
+              border: `1.5px solid ${profile.dias === d ? C.pink : C.line}`,
+              background: profile.dias === d ? C.surfaceTint : C.surface,
+              color: profile.dias === d ? C.pinkDim : C.text, cursor: "pointer",
+            }}>{d}</button>))}
+          </div>
+        </div>
+      </div>) },
+    { title: "Alguma restrição?", valid: () => true,
+      body: (<div style={{ display: "grid", gap: 8 }}>
+        <div style={{ fontSize: 13, color: C.dim }}>Lesões, dores ou limitações (opcional)</div>
+        <textarea value={profile.restricoes} onChange={(e) => upd("restricoes", e.target.value)}
+          placeholder="Ex: dor no joelho, hérnia lombar, ombro sensível..." rows={4}
+          style={{ width: "100%", padding: "13px 14px", borderRadius: 12, border: `1.5px solid ${C.line}`,
+            background: C.surface, color: C.text, fontSize: 16, outline: "none", resize: "vertical", boxSizing: "border-box", fontFamily: "inherit" }} />
+        <div style={{ fontSize: 12, color: C.dim, marginTop: 2 }}>Reconhecemos joelho, lombar/coluna e ombro para evitar exercícios de risco.</div>
+      </div>) },
+  ];
+
+  const wrap = { minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" };
+  const container = { maxWidth: 480, margin: "0 auto", padding: "0 18px 40px" };
+
+  if (view === "loading")
+    return <div style={{ ...wrap, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ color: C.dim }}>Carregando…</div></div>;
+
+  return (
+    <div style={wrap}>
+      <div style={{ ...container, paddingTop: 24, paddingBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 9, background: C.pink, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, color: "#fff", fontSize: 15 }}>♥</div>
+          <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: -0.3 }}>MimiFit</span>
+        </div>
+        {history.length > 0 && (
+          <button onClick={() => setView(view === "history" ? "onboarding" : "history")} style={{
+            background: "none", border: `1.5px solid ${C.line}`, color: C.dim,
+            padding: "7px 12px", borderRadius: 10, fontSize: 13, cursor: "pointer",
+          }}>{view === "history" ? "Voltar" : `Histórico (${history.length})`}</button>
+        )}
+      </div>
+
+      {view === "onboarding" && (
+        <div style={container}>
+          <div style={{ display: "flex", gap: 5, marginBottom: 26, marginTop: 14 }}>
+            {steps.map((_, i) => (<div key={i} style={{ flex: 1, height: 4, borderRadius: 4, background: i <= step ? C.pink : C.line }} />))}
+          </div>
+          <h1 style={{ fontSize: 26, fontWeight: 800, margin: "0 0 22px", letterSpacing: -0.5 }}>{steps[step].title}</h1>
+          {steps[step].body}
+          <div style={{ display: "flex", gap: 10, marginTop: 28 }}>
+            {step > 0 && (<button onClick={() => setStep(step - 1)} style={{
+              flex: "0 0 auto", padding: "15px 22px", borderRadius: 14, border: `1.5px solid ${C.line}`,
+              background: "none", color: C.text, fontSize: 15, fontWeight: 600, cursor: "pointer",
+            }}>Voltar</button>)}
+            {step < steps.length - 1 ? (
+              <button disabled={!steps[step].valid()} onClick={() => setStep(step + 1)} style={{
+                flex: 1, padding: "15px 0", borderRadius: 14, border: "none",
+                background: steps[step].valid() ? C.pink : C.line, color: steps[step].valid() ? "#fff" : C.dim,
+                fontSize: 16, fontWeight: 800, cursor: steps[step].valid() ? "pointer" : "not-allowed",
+              }}>Continuar</button>
+            ) : (
+              <button onClick={() => generatePlan()} style={{
+                flex: 1, padding: "15px 0", borderRadius: 14, border: "none",
+                background: C.pink, color: "#fff", fontSize: 16, fontWeight: 800, cursor: "pointer",
+              }}>Gerar ficha de treino</button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {view === "result" && plan && (
+        <PlanView plan={plan} ytSearch={ytSearch}
+          onNew={() => { setStep(0); setView("onboarding"); }}
+          onRegen={() => adjustPlan({})}
+          onAdjust={adjustPlan}
+          onSwap={swapExercise} />
+      )}
+
+      {view === "history" && (
+        <div style={container}>
+          <h1 style={{ fontSize: 24, fontWeight: 800, margin: "14px 0 20px" }}>Fichas anteriores</h1>
+          <div style={{ display: "grid", gap: 12 }}>
+            {history.map((rec) => (
+              <button key={rec.id} onClick={() => { setPlan(rec); setView("result"); }} style={{
+                textAlign: "left", padding: 16, borderRadius: 14, border: `1.5px solid ${C.line}`,
+                background: C.surface, color: C.text, cursor: "pointer",
+              }}>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>{rec.plan.divisao}</div>
+                <div style={{ fontSize: 13, color: C.dim, marginTop: 4 }}>
+                  {rec.profile.objetivo} · {rec.profile.dias}x/semana · {new Date(rec.createdAt).toLocaleDateString("pt-BR")}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const GRUPOS_AJUSTE = [
+  { id: "peito", label: "Peito" },
+  { id: "costas", label: "Costas" },
+  { id: "ombro", label: "Ombros" },
+  { id: "quadriceps", label: "Pernas" },
+  { id: "gluteo", label: "Glúteos" },
+  { id: "biceps", label: "Braços" },
+];
+
+function PlanView({ plan, ytSearch, onNew, onRegen, onAdjust, onSwap }) {
+  const [open, setOpen] = useState(0);
+  const [panel, setPanel] = useState(false);
+  const p = plan.plan;
+  const container = { maxWidth: 480, margin: "0 auto", padding: "0 18px 40px" };
+
+  return (
+    <div style={container}>
+      <div style={{ background: C.surfaceTint, border: `1.5px solid ${C.line}`, borderRadius: 16, padding: 18, marginTop: 14, marginBottom: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.pinkDim, letterSpacing: 0.5, textTransform: "uppercase" }}>{p.divisao}</div>
+        <div style={{ fontSize: 15, marginTop: 8, lineHeight: 1.5 }}>{p.resumo}</div>
+      </div>
+
+      {/* Ajustes do Matheus */}
+      <div style={{ border: `1.5px solid ${C.line}`, borderRadius: 16, background: C.surface, marginBottom: 18, overflow: "hidden" }}>
+        <button onClick={() => setPanel(!panel)} style={{
+          width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "15px 18px", background: "none", border: "none", color: C.text, cursor: "pointer",
+        }}>
+          <span style={{ fontWeight: 700, fontSize: 15 }}>✦ Ajustes do Matheus</span>
+          <span style={{ color: C.dim, transform: panel ? "rotate(180deg)" : "none", transition: ".2s" }}>⌄</span>
+        </button>
+        {panel && (
+          <div style={{ padding: "0 18px 16px", display: "grid", gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 13, color: C.dim, marginBottom: 8 }}>Dar mais ênfase a um grupo</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                {GRUPOS_AJUSTE.map((g) => (
+                  <button key={g.id} onClick={() => onAdjust({ emphasis: g.id })} style={{
+                    padding: "11px 0", borderRadius: 11, fontSize: 13.5, fontWeight: 600,
+                    border: `1.5px solid ${C.line}`, background: C.surface, color: C.text, cursor: "pointer",
+                  }}>{g.label}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 13, color: C.dim, marginBottom: 8 }}>Volume de exercícios</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => onAdjust({ volumeAdj: -1 })} style={{
+                  flex: 1, padding: "12px 0", borderRadius: 11, fontSize: 14, fontWeight: 600,
+                  border: `1.5px solid ${C.line}`, background: C.surface, color: C.text, cursor: "pointer",
+                }}>− Mais curto</button>
+                <button onClick={() => onAdjust({ volumeAdj: 1 })} style={{
+                  flex: 1, padding: "12px 0", borderRadius: 11, fontSize: 14, fontWeight: 600,
+                  border: `1.5px solid ${C.line}`, background: C.surface, color: C.text, cursor: "pointer",
+                }}>+ Mais completo</button>
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.5 }}>
+              Dica: para trocar um exercício específico, use o botão <b>trocar</b> ao lado de cada um.
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "grid", gap: 12 }}>
+        {p.treinos.map((t, i) => (
+          <div key={i} style={{ border: `1.5px solid ${C.line}`, borderRadius: 16, overflow: "hidden", background: C.surface }}>
+            <button onClick={() => setOpen(open === i ? -1 : i)} style={{
+              width: "100%", textAlign: "left", padding: "16px 18px", background: "none",
+              border: "none", color: C.text, cursor: "pointer", display: "flex",
+              justifyContent: "space-between", alignItems: "center",
+            }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{t.nome}</div>
+                <div style={{ fontSize: 12.5, color: C.dim, marginTop: 2 }}>{t.foco}</div>
+              </div>
+              <span style={{ color: C.dim, fontSize: 18, transform: open === i ? "rotate(180deg)" : "none", transition: ".2s" }}>⌄</span>
+            </button>
+            {open === i && (
+              <div style={{ padding: "0 18px 14px" }}>
+                {t.exercicios.map((ex, j) => (
+                  <div key={j} style={{ padding: "13px 0", borderTop: `1px solid ${C.line}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                      <div style={{ fontWeight: 600, fontSize: 15, flex: 1 }}>{ex.nome}</div>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => onSwap(i, j)} style={{
+                          fontSize: 12, fontWeight: 700, color: C.dim, background: "none",
+                          border: `1.5px solid ${C.line}`, padding: "5px 9px", borderRadius: 8, cursor: "pointer",
+                        }}>↻ trocar</button>
+                        <a href={ytSearch(ex.nome)} target="_blank" rel="noreferrer" style={{
+                          fontSize: 12, fontWeight: 700, color: C.pinkDim, textDecoration: "none",
+                          border: `1.5px solid ${C.pink}`, padding: "5px 10px", borderRadius: 8,
+                        }}>▶ vídeo</a>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 14, marginTop: 7, fontSize: 13, color: C.dim }}>
+                      <span><b style={{ color: C.text }}>{ex.series}</b> séries</span>
+                      <span><b style={{ color: C.text }}>{ex.reps}</b> reps</span>
+                      <span>descanso <b style={{ color: C.text }}>{ex.descanso}</b></span>
+                    </div>
+                    {ex.obs && <div style={{ fontSize: 12.5, color: C.dim, marginTop: 6, fontStyle: "italic" }}>{ex.obs}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {p.observacoes && (
+        <div style={{ marginTop: 18, padding: 16, borderRadius: 14, border: `1.5px dashed ${C.line}`, fontSize: 13.5, color: C.dim, lineHeight: 1.5 }}>💡 {p.observacoes}</div>
+      )}
+
+      <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
+        <button onClick={onRegen} style={{
+          flex: "0 0 auto", padding: "15px 20px", borderRadius: 14, border: `1.5px solid ${C.line}`,
+          background: "none", color: C.text, fontSize: 15, fontWeight: 700, cursor: "pointer",
+        }}>↻ Variar</button>
+        <button onClick={onNew} style={{
+          flex: 1, padding: "15px 0", borderRadius: 14, border: "none",
+          background: C.pink, color: "#fff", fontSize: 16, fontWeight: 800, cursor: "pointer",
+        }}>Nova ficha</button>
+      </div>
+
+      <p style={{ fontSize: 11.5, color: C.dim, marginTop: 16, lineHeight: 1.5, textAlign: "center" }}>
+        Sugestões automáticas. Consulte um profissional de educação física antes de iniciar, especialmente se tiver restrições.
+      </p>
+    </div>
+  );
+}
+
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
